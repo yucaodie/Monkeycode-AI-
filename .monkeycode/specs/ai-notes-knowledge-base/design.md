@@ -86,7 +86,7 @@ graph TB
 
 | 路径 | 页面 | 说明 |
 |------|------|------|
-| `/notes` | 笔记模块 | 三栏布局：笔记本列表 / 笔记列表 / 笔记页编辑器（首页为笔记页） |
+| `/notes` | 笔记模块 | 双栏布局：笔记树（笔记本 > 笔记 > 笔记页层级树）/ 笔记页编辑器（首页为笔记页） |
 | `/knowledge-base` | 知识库模块 | 双栏布局：文件夹列表 / 文件列表及预览 |
 | `/output` | 模板输出 | 从笔记页和知识库文件中选择内容，按模板整理输出 |
 | `/settings/models` | 模型设置 | 按类别分组的模型配置管理 |
@@ -103,8 +103,7 @@ App.tsx (BrowserRouter)
 │   └── <Outlet />
 ├── Pages/
 │   ├── NotesPage.tsx (默认首页)
-│   │   ├── NotebookList.tsx (左侧栏 - 笔记本列表)
-│   │   ├── NoteList.tsx (中间栏 - 笔记列表)
+│   │   ├── NoteTree.tsx (左侧栏 - 笔记树：笔记本 > 笔记 > 笔记页层级树形结构)
 │   │   └── NotePageEditor.tsx (右侧栏 - 笔记页编辑器)
 │   │       └── TipTapEditor.tsx (富文本编辑器封装)
 │   ├── KnowledgeBasePage.tsx
@@ -125,12 +124,47 @@ App.tsx (BrowserRouter)
     └── TagManager.tsx (跨模块标签管理)
 ```
 
+#### NoteTree 组件规格
+
+NoteTree 是一个树形导航组件，在左侧面板中一次性展示笔记本 > 笔记 > 笔记页的完整层级结构。
+
+**视觉层级**：
+- 笔记本节点：一级节点，粗体，带笔记本图标，点击展开/折叠
+- 笔记节点：二级节点，普通字体，带笔记图标，缩进 12px，点击展开/折叠
+- 笔记页节点：叶子节点，浅色字体，带页面图标，缩进 24px，点击打开编辑器
+
+**交互行为**：
+- 展开/折叠：点击节点左侧的箭头图标切换展开状态
+- 选中：点击笔记页节点，高亮并加载内容到右侧编辑器
+- 右键菜单：节点类型决定菜单项
+  - 笔记本：新建笔记、重命名、删除
+  - 笔记：新建笔记页、重命名、删除
+  - 笔记页：重命名、删除、导出到知识库
+- 拖拽排序：同级节点可拖拽重排，笔记页可拖到不同笔记下
+- 内联重命名：双击节点名称或右键 → 重命名，原地编辑
+
+**数据加载策略**：
+- 初始加载：只加载笔记本列表
+- 懒加载：展开笔记本时才请求 `GET /api/notes/notebooks/:id/notes`
+- 懒加载：展开笔记时才请求 `GET /api/notes/notes/:id/pages`
+
+**状态管理**：
+```
+NoteTreeState {
+  expandedIds: Set<string>        // "nb_1", "note_5"
+  selectedPageId: number | null
+  editNodeId: string | null       // 正在内联编辑的节点
+  dragState: { ... } | null
+}
+```
+
 ### 2. 后端服务接口
 
 #### 2.1 笔记模块 API
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
+| `GET` | `/api/notes/tree` | 获取完整笔记树（笔记本 + 笔记 + 笔记页的嵌套 JSON，用于树形导航） |
 | `GET` | `/api/notes/notebooks` | 获取笔记本列表（按排序字段） |
 | `POST` | `/api/notes/notebooks` | 创建笔记本 |
 | `PUT` | `/api/notes/notebooks/:id` | 更新笔记本（重命名/排序） |
@@ -148,6 +182,28 @@ App.tsx (BrowserRouter)
 | `POST` | `/api/notes/pages/:id/restore/:versionId` | 回退到指定历史版本 |
 | `POST` | `/api/notes/pages/:id/link-file` | 建立笔记页到知识库文件的引用关联 |
 | `POST` | `/api/notes/pages/:id/export-to-kb` | 将笔记页导出为知识库 .md 文件 |
+
+`GET /api/notes/tree` 返回结构：
+```json
+[
+  {
+    "id": 1,
+    "name": "工作笔记",
+    "type": "notebook",
+    "children": [
+      {
+        "id": 10,
+        "name": "项目计划",
+        "type": "note",
+        "children": [
+          { "id": 100, "name": "需求梳理", "type": "page" },
+          { "id": 101, "name": "技术方案", "type": "page" }
+        ]
+      }
+    ]
+  }
+]
+```
 
 #### 2.2 知识库模块 API
 
@@ -471,7 +527,7 @@ CREATE INDEX idx_taggables_entity ON taggables(entity_type, entity_id);
 - [ ] 笔记本/笔记/笔记页 CRUD API
 - [ ] 笔记页历史版本管理
 - [ ] TipTap 富文本编辑器集成
-- [ ] 前端笔记页面（三栏布局 + 拖拽排序 + 自动保存）
+- [ ] 前端笔记页面（笔记树 + 笔记页编辑器的双栏布局 + 拖拽排序 + 自动保存）
 
 ### Phase 4: 标签 + 模块互通 + 智能问答
 - [ ] 跨模块标签服务（`TagService` + 多态关联 `taggables`）
