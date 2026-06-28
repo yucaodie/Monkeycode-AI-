@@ -69,20 +69,67 @@ export default function SettingsPage() {
   const grouped = { chat: [] as ModelConfig[], embedding: [] as ModelConfig[], reranker: [] as ModelConfig[] };
   for (const m of models) grouped[m.category].push(m);
 
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: 'var(--font-size-small)',
+    color: 'var(--color-text-secondary)',
+    marginBottom: 'var(--space-xs)',
+  };
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: 'var(--space-xs) var(--space-sm)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-sm)',
+    fontSize: 'var(--font-size-small)',
+    boxSizing: 'border-box',
+    background: 'var(--color-bg-primary)',
+    color: 'var(--color-text-primary)',
+  };
+
+  const actionBtnStyle: React.CSSProperties = {
+    padding: 'var(--space-xs) var(--space-sm)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-sm)',
+    background: 'var(--color-bg-primary)',
+    cursor: 'pointer',
+    fontSize: 'var(--font-size-small)',
+    color: 'var(--color-text-secondary)',
+  };
+
   return (
-    <div style={{ maxWidth: '800px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>AI 模型设置</h2>
+    <div style={{ maxWidth: 800, height: '100%', overflow: 'auto', padding: 'var(--space-xl)' }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: 'var(--space-xl)',
+      }}>
+        <h2 style={{
+          margin: 0,
+          fontSize: 'var(--font-size-h2)',
+          fontWeight: 'var(--font-weight-semibold)',
+          color: 'var(--color-text-primary)',
+        }}>AI 模型设置</h2>
         <button onClick={() => setShowForm(!showForm)} style={{
-          padding: '8px 16px', background: '#4ecdc4', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer',
+          padding: 'var(--space-sm) var(--space-lg)',
+          background: 'var(--color-primary)',
+          color: 'var(--color-text-inverse)',
+          border: 'none',
+          borderRadius: 'var(--radius-md)',
+          cursor: 'pointer',
+          fontSize: 'var(--font-size-body)',
         }}>
           {showForm ? '取消' : '添加模型'}
         </button>
       </div>
 
       {showForm && (
-        <div style={{ padding: '16px', background: '#f8f8f8', borderRadius: '8px', marginBottom: '16px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <div style={{
+          padding: 'var(--space-lg)',
+          background: 'var(--color-bg-secondary)',
+          borderRadius: 'var(--radius-lg)',
+          marginBottom: 'var(--space-lg)',
+        }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-sm)' }}>
             <div>
               <label style={labelStyle}>名称</label>
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={inputStyle} placeholder="如: 本地 Qwen 7B" />
@@ -107,14 +154,20 @@ export default function SettingsPage() {
               <label style={labelStyle}>模型标识符</label>
               <input value={form.model_identifier} onChange={e => setForm({ ...form, model_identifier: e.target.value })} style={inputStyle} placeholder="qwen2.5-7b-instruct" />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
               <input type="checkbox" checked={form.is_default} onChange={e => setForm({ ...form, is_default: e.target.checked })} />
-              <label style={{ fontSize: '13px' }}>设为默认</label>
+              <label style={{ fontSize: 'var(--font-size-small)', color: 'var(--color-text-secondary)' }}>设为默认</label>
             </div>
           </div>
           <button onClick={handleCreate} style={{
-            marginTop: '12px', padding: '8px 24px', background: '#4ecdc4', color: '#fff',
-            border: 'none', borderRadius: '6px', cursor: 'pointer',
+            marginTop: 'var(--space-md)',
+            padding: 'var(--space-sm) var(--space-2xl)',
+            background: 'var(--color-primary)',
+            color: 'var(--color-text-inverse)',
+            border: 'none',
+            borderRadius: 'var(--radius-md)',
+            cursor: 'pointer',
+            fontSize: 'var(--font-size-body)',
           }}>
             保存
           </button>
@@ -122,34 +175,69 @@ export default function SettingsPage() {
       )}
 
       {(['chat', 'embedding', 'reranker'] as const).map(cat => (
-        <div key={cat} style={{ marginBottom: '20px' }}>
-          <h3 style={{ fontSize: '15px', color: '#444', marginBottom: '8px' }}>{CATEGORY_LABELS[cat]}</h3>
+        <div key={cat} style={{ marginBottom: 'var(--space-xl)' }}>
+          <h3 style={{
+            fontSize: 'var(--font-size-body)',
+            color: 'var(--color-text-secondary)',
+            marginBottom: 'var(--space-sm)',
+            fontWeight: 'var(--font-weight-medium)',
+          }}>{CATEGORY_LABELS[cat]}</h3>
           {grouped[cat].length === 0 ? (
-            <p style={{ color: '#999', fontSize: '13px' }}>暂无配置</p>
+            <p style={{ color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-small)' }}>暂无配置</p>
           ) : (
             grouped[cat].map(m => (
               <div key={m.id} style={{
-                padding: '12px', border: '1px solid #eee', borderRadius: '6px',
-                marginBottom: '6px', background: m.is_default ? '#f0fdfa' : '#fff',
+                padding: 'var(--space-md)',
+                border: '1px solid var(--color-border-light)',
+                borderRadius: 'var(--radius-md)',
+                marginBottom: 'var(--space-xs)',
+                background: m.is_default ? 'var(--color-bg-selected)' : 'var(--color-bg-primary)',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: '14px' }}>
+                  <div style={{ fontWeight: 'var(--font-weight-semibold)', fontSize: 'var(--font-size-body)', color: 'var(--color-text-primary)' }}>
                     {m.name}
-                    {m.is_default && <span style={{ marginLeft: '8px', fontSize: '11px', color: '#4ecdc4', background: '#e8f8f7', padding: '1px 6px', borderRadius: '3px' }}>默认</span>}
-                    {m.last_test_status === 'ok' && <span style={{ marginLeft: '6px', fontSize: '11px', color: '#4a9', padding: '1px 6px' }}>连通</span>}
-                    {m.last_test_status === 'fail' && <span style={{ marginLeft: '6px', fontSize: '11px', color: '#e55', padding: '1px 6px' }}>失败</span>}
+                    {m.is_default && (
+                      <span style={{
+                        marginLeft: 'var(--space-sm)',
+                        fontSize: 'var(--font-size-small)',
+                        color: 'var(--color-primary)',
+                        background: 'var(--color-primary-bg)',
+                        padding: '1px 6px',
+                        borderRadius: 'var(--radius-sm)',
+                      }}>默认</span>
+                    )}
+                    {m.last_test_status === 'ok' && (
+                      <span style={{
+                        marginLeft: 'var(--space-xs)',
+                        fontSize: 'var(--font-size-small)',
+                        color: 'var(--color-success)',
+                        padding: '1px 6px',
+                      }}>连通</span>
+                    )}
+                    {m.last_test_status === 'fail' && (
+                      <span style={{
+                        marginLeft: 'var(--space-xs)',
+                        fontSize: 'var(--font-size-small)',
+                        color: 'var(--color-error)',
+                        padding: '1px 6px',
+                      }}>失败</span>
+                    )}
                   </div>
-                  <div style={{ fontSize: '12px', color: '#888', marginTop: '2px' }}>{m.model_identifier} @ {m.api_base_url}</div>
+                  <div style={{
+                    fontSize: 'var(--font-size-small)',
+                    color: 'var(--color-text-tertiary)',
+                    marginTop: 'var(--space-xs)',
+                  }}>{m.model_identifier} @ {m.api_base_url}</div>
                 </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
                   <button onClick={() => handleTest(m.id)} disabled={testingId === m.id} style={actionBtnStyle}>
                     {testingId === m.id ? '...' : '测试'}
                   </button>
                   {!m.is_default && (
                     <button onClick={() => handleSetDefault(m.id)} style={actionBtnStyle}>设为默认</button>
                   )}
-                  <button onClick={() => handleDelete(m.id)} style={{ ...actionBtnStyle, color: '#e55' }}>删除</button>
+                  <button onClick={() => handleDelete(m.id)} style={{ ...actionBtnStyle, color: 'var(--color-error)' }}>删除</button>
                 </div>
               </div>
             ))
@@ -159,7 +247,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-const labelStyle: React.CSSProperties = { display: 'block', fontSize: '12px', color: '#666', marginBottom: '3px' };
-const inputStyle: React.CSSProperties = { width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', boxSizing: 'border-box' };
-const actionBtnStyle: React.CSSProperties = { padding: '4px 10px', border: '1px solid #ddd', borderRadius: '4px', background: '#fff', cursor: 'pointer', fontSize: '12px' };

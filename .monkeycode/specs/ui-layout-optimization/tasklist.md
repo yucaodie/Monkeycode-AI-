@@ -1,0 +1,119 @@
+# 需求实施计划
+
+- [x] 1. 创建基础设施：设计令牌、全局状态和共享样式
+  - [x] 1.1 在 index.css 中定义完整设计令牌 CSS 变量
+    - 定义品牌色、侧边栏色、内容区色、边框色、文字色（3 级灰度）、状态色两套令牌（`:root` 亮色 + `@media (prefers-color-scheme: dark)` 暗色），覆盖 Req 1.1, 1.2
+    - 定义 6 级间距阶梯（--space-xs ~ --space-2xl）和 5 级排版层级（--font-size-h2/h3/body/small + --font-weight-* + --line-height-*），覆盖 Req 2.1, 2.2
+    - 定义圆角（--radius-sm/md/lg）、布局变量（--sidebar-width: 240px, --sidebar-collapsed-width: 60px），覆盖设计文档 Design Tokens 章节全部令牌
+  - [x] 1.2 创建 NavigationContext 全局状态管理
+    - 在 `frontend/src/contexts/NavigationContext.tsx` 创建 Context，定义 NavigationState（activeView + notes/kb 选中 ID）和 NavigationActions（selectNote/selectPage/selectFolder/selectFile/navigateTo），覆盖设计文档 §1
+    - 实现 NavigationProvider，使用 useReducer 管理状态，支持侧边栏嵌入组件读写选中状态
+  - [x] 1.3 创建 styles.ts 共享样式常量
+    - 在 `frontend/src/styles.ts` 导出 btnPrimary, btnDanger, btnGhost, btnIcon 按钮变体和 inputText, panel 样式对象，全部使用 `var(--xxx)` 引用设计令牌，覆盖 Req 8.3, 8.4
+  - [x] 1.4 移除 #root 宽度限制并调整全局布局
+    - 从 index.css 中移除 `#root { width: 1126px; margin: 0 auto; text-align: center; border-inline: ... }` 规则，覆盖 Req 9.2
+    - 设置 `#root { min-height: 100vh; }`，移除 body 默认 margin，覆盖 Req 9.1
+  - [x] 1.5 为 NavigationContext 编写单元测试
+    - 测试 navigateTo 切换 activeView 正确性
+    - 测试 selectNote/selectFolder 更新选中状态且不丢失其他字段
+
+- [x] 2. 检查点 - 确保设计令牌和 Context 基础可用
+  - 确认 index.css 中所有令牌变量定义完整，亮色/暗色双主题切换正常
+  - 确认 NavigationProvider 可被 App.tsx 引入且不报错
+
+- [x] 3. 重构侧边栏：分组布局 + 折叠 + 底部区域
+  - [x] 3.1 创建 SectionGroup 和 NavItem 侧边栏子组件
+    - SectionGroup：接收 title/expanded/onToggle/children，渲染可折叠分组标题 + 子内容，覆盖 Req 3.1 分组展示需求
+    - NavItem：接收 icon/label/active/onClick，渲染导航项，点击时调用 `navigateTo()`，覆盖 Req 3.5 其他导航项交互
+    - 两个组件样式使用 index.css 中 --color-sidebar-* 令牌，覆盖 Req 1.3
+  - [x] 3.2 重写 Sidebar.tsx 主组件
+    - 顶部渲染 Logo + 应用名称（固定），覆盖 Req 3.6
+    - 中间可滚动区域渲染三个 SectionGroup：「内容管理」（默认展开）、「AI 工具」、「系统」，覆盖 Req 3.1
+    - 底部渲染折叠按钮 + 用户头像/登录按钮 + 设置齿轮按钮 + 版本号，覆盖 Req 4.1, 4.3
+    - 底部区域 CSS `position: sticky; bottom: 0` 固定，覆盖 Req 4.4
+    - 为「笔记 & 知识库」预留内嵌树区域占位（阶段 4 填充）
+  - [x] 3.3 实现侧边栏折叠/展开 + localStorage 持久化
+    - 折叠按钮切换 collapsed 状态，折叠态宽度 60px 仅显示图标，hover 时显示 Browser 原生 title tooltip，覆盖 Req 5.1, 5.2
+    - 折叠状态写入 localStorage 键 `sidebar-collapsed`，初始化时读取，覆盖 Req 5.5
+  - [x] 3.4 实现侧边栏响应式行为
+    - 使用 CSS `@media (max-width: 768px)`：默认折叠，展开时 `position: fixed; z-index: 100` + 半透明遮罩层（点击遮罩关闭），覆盖 Req 5.3, 5.4
+  - [x] 3.5 实现用户区域交互
+    - 未登录显示「登录」文字按钮，已登录显示头像占位符 + 用户名「admin」，覆盖 Req 4.1
+    - 点击用户区域弹出下拉菜单（个人信息/API Key 管理/退出登录占位项），覆盖 Req 4.2
+  - [x] 3.6 为 Sidebar 组件编写单元测试
+    - 测试折叠/展开切换和 localStorage 读写
+    - 测试 NavItem 点击触发 navigateTo 回调
+    - 测试 SectionGroup 展开/折叠行为
+
+- [x] 4. 内嵌树形导航：提取并重构 NoteTree 和 FolderList
+  - [x] 4.1 创建 ResizablePanels 通用组件
+    - 在 `frontend/src/components/ResizablePanels.tsx` 创建组件，支持 direction='vertical'（上下分栏），通过 onMouseDown/Move/Up 实现拖拽分隔线，覆盖设计文档 §5
+    - 接收 defaultRatios（默认 [0.5, 0.5]）、minSizes（默认 [120, 120]）、storageKey（localStorage 持久化比例），分隔线 4px 高 hover 高亮
+  - [x] 4.2 重构 NoteTree 为 Context 驱动独立组件
+    - 从 `frontend/src/pages/NotesPage.tsx` 提取 NoteTree 逻辑，移除对 PageList 和 TipTapEditor 的直接控制，覆盖 Req 3.2, 3.3
+    - 点击笔记本节点展开/折叠子笔记，点击笔记节点调用 `navigation.selectNote()` 和 `navigation.navigateTo('notes')`，选中态通过 Context 读取 `selectedNoteId`
+    - NoteTree 内联样式中的颜色/间距值同步替换为 `var(--xxx)` 引用，覆盖 Req 8.1, 8.2
+  - [x] 4.3 重构 FolderList 为 Context 驱动独立组件
+    - 从 `frontend/src/pages/KnowledgeBasePage.tsx` 提取 FolderList 逻辑，移除对 FilePanel 和 FilePreview 的直接控制，覆盖 Req 3.2, 3.4
+    - 点击文件夹调用 `navigation.selectFolder()` 和 `navigation.navigateTo('kb')`，选中态通过 Context 读取 `selectedFolderId`
+    - FolderList 内联样式中的颜色/间距值同步替换为 `var(--xxx)` 引用，覆盖 Req 8.1, 8.2
+  - [x] 4.4 在 Sidebar 展开区域中集成双树
+    - 在 Sidebar.tsx 的「笔记 & 知识库」SectionGroup 内渲染 ResizablePanels（vertical）：上方嵌入 `<NoteTree />`，下方嵌入 `<FolderList />`，各占 50% 高度，覆盖 Req 3.2
+    - 展开/折叠状态写入 localStorage 键 `sidebar-notes-kb-expanded`
+  - [x] 4.5 为 ResizablePanels 组件编写单元测试
+    - 测试拖拽后宽度比例变更
+    - 测试最小尺寸约束（不缩放至 < minSizes）
+
+- [x] 5. 检查点 - 确保侧边栏树形导航与 Context 联动正确
+  - 点击笔记节点后 ContentArea 显示「请从侧边栏选择笔记」→ 验证 Context 中 selectedNoteId 已更新
+  - 点击文件夹后验证 Context 中 selectedFolderId 已更新
+
+- [x] 6. 创建右侧 ContentArea 动态渲染体系
+  - [x] 6.1 创建 NotesWorkspace 组件
+    - 在 `frontend/src/components/NotesWorkspace.tsx` 创建组件，从 Context 读取 selectedNoteId/selectedPageId，覆盖 Req 7.1
+    - 渲染 ResizablePanels（horizontal）：左侧 PageList（200px initial）+ 右侧 TipTapEditor（剩余宽度），覆盖 Req 7.1, 7.4
+    - PageList：根据 selectedNoteId 调用 `notesService.getPages()` 获取笔记页列表，支持创建/重命名/删除，覆盖 Req 7.2
+    - TipTapEditor：根据 selectedPageId 加载笔记页内容，覆盖 Req 7.3
+    - PageList 和 TipTapEditor 内联样式替换为 `var(--xxx)` 引用，覆盖 Req 8
+  - [x] 6.2 创建 KBWorkspace 组件
+    - 在 `frontend/src/components/KBWorkspace.tsx` 创建组件，从 Context 读取 selectedFolderId/selectedFileId，覆盖 Req 6.1
+    - 渲染 ResizablePanels（horizontal）：左侧 FilePanel（280px initial）+ 右侧 FilePreview（剩余宽度），覆盖 Req 6.1, 6.4
+    - FilePanel：根据 selectedFolderId 调用 `kbService.getFiles()` 获取文件列表，支持上传/重命名/删除，覆盖 Req 6.2
+    - FilePreview：根据 selectedFileId 渲染文件内容（.md Markdown、图片直接展示），覆盖 Req 6.3
+    - FilePanel 和 FilePreview 内联样式替换为 `var(--xxx)` 引用，覆盖 Req 8
+  - [x] 6.3 创建 ContentArea 根组件
+    - 在 `frontend/src/components/ContentArea.tsx` 创建组件，根据 Context `activeView` 动态渲染：'notes'→NotesWorkspace, 'kb'→KBWorkspace, 'qa'→QAPage, 'output'→OutputPage, 'settings'→SettingsPage，覆盖设计文档 §4
+    - 当 activeView 为 notes/kb 但未选中节点时渲染 WelcomeHint 占位提示，覆盖 Req 3.3, 3.4
+  - [x] 6.4 简化 App.tsx 和 Layout.tsx
+    - App.tsx：用 NavigationProvider 包裹，移除 Routes 嵌套路由，降级为 `<Route path="*" element={<Layout />} />`，覆盖设计文档 §7
+    - Layout.tsx：移除 `<Outlet />`，直接渲染 `<ContentArea />`，容器 `display: flex; height: 100vh; overflow: hidden`，覆盖 Req 9.1, 9.3, 9.4
+  - [x] 6.5 为 ContentArea 编写单元测试
+    - 测试 activeView 各值对应渲染正确组件
+    - 测试未选中节点时 WelcomeHint 渲染
+
+- [x] 7. 检查点 - 确保全流程可用
+  - 侧边栏展开笔记树 → 点击笔记 → 右侧显示 PageList + Editor → 点击笔记页 → 编辑器加载内容
+  - 侧边栏展开知识库树 → 点击文件夹 → 右侧显示 FilePanel + Preview → 点击文件 → 预览渲染
+  - 点击 QA/Output/Settings 导航项 → 右侧切换对应页面
+  - 折叠侧边栏 → 仅图标可见 → 展开恢复
+  - 刷新页面 → localStorage 持久化状态恢复
+
+- [x] 8. 迁移剩余组件样式到设计令牌
+  - [x] 8.1 迁移 QAPage 内联样式
+    - 将 QAPage.tsx 中所有硬编码颜色值（`#e6f7f5`, `#c3ede6`, `#f5f5f5`, `#e8e8e8` 等）替换为 `var(--color-*)` 引用，覆盖 Req 8.1
+    - 将硬编码 padding/gap/fontSize 替换为 `var(--space-*)` 和 `var(--font-size-*)` 引用，覆盖 Req 8.2
+  - [x] 8.2 迁移 OutputPage 内联样式
+    - 同 8.1 模式，替换颜色/间距/字号为令牌引用
+  - [x] 8.3 迁移 SettingsPage 内联样式
+    - 同 8.1 模式，替换颜色/间距/字号为令牌引用
+  - [x] 8.4 清理 App.css 无用样式
+    - 移除所有未被引用的旧布局 CSS（`.app-container`, `.knowledge-card`, `.file-uploader`, `.output-panel`, `.search-panel` 等），保留基础 root/body 设置
+    - Sidebar 样式已通过内联 + CSS 变量覆盖，无需单独 Sidebar.css
+
+- [x] 9. 实现响应式布局适配
+  - [x] 9.1 实现 NotesWorkspace 响应式
+    - 添加 CSS `@media (max-width: 768px)`：ResizablePanels 隐藏分隔线，PageList 和 Editor 上下堆叠（单栏全屏编辑器），覆盖 Req 7.5
+  - [x] 9.2 实现 KBWorkspace 响应式
+    - 添加 CSS `@media (max-width: 768px)`：ResizablePanels 隐藏分隔线，FilePanel 在顶部压缩展示，FilePreview 全屏，覆盖 Req 6.5
+  - [x] 9.3 确保各面板内部独立滚动
+    - 确认 Layout（100vh + overflow:hidden）→ ContentArea（overflow:hidden）→ 各 Workspace 面板（overflow:auto）滚动链路正确，无全局滚动条，覆盖 Req 9.3, 9.4

@@ -1,0 +1,29 @@
+@media (max-width: 768px) {
+  .resizable-vertical.workspace-notes .resizable-panel-top,
+  .resizable-vertical.workspace-kb .resizable-panel-top,
+  .resizable-horizontal.workspace-notes .resizable-panel-left,
+  .resizable-horizontal.workspace-kb .resizable-panel-left {
+    display: none;
+  }
+
+  .resizable-horizontal.workspace-notes .resizable-divider,
+  .resizable-horizontal.workspace-kb .resizable-divider {
+    display: none !important;
+  }
+
+  .resizable-horizontal.workspace-notes .resizable-panel-right,
+  .resizable-horizontal.workspace-kb .resizable-panel-right {
+    width: 100% !important;
+    flex: 1 !important;
+  }
+
+  .sidebar-overlay {
+    display: block;
+  }
+}
+
+@media (min-width: 769px) {
+  .sidebar-overlay {
+    display: none;
+  }
+}

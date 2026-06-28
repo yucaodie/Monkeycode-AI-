@@ -76,25 +76,16 @@ router.get('/tree', (req, res) => {
     const notebooks = notebookRepo.list();
     const tree = notebooks.map(nb => {
       const notes = noteRepo.listByNotebook(nb.id);
-      const children = notes.map(n => {
-        const pages = pageRepo.listByNote(n.id);
-        return {
-          id: n.id,
-          name: n.name,
-          type: 'note' as const,
-          children: pages.map(p => ({
-            id: p.id,
-            name: p.title || 'Untitled',
-            type: 'page' as const,
-            note_id: n.id,
-          })),
-        };
-      });
       return {
         id: nb.id,
         name: nb.name,
         type: 'notebook' as const,
-        children,
+        children: notes.map(n => ({
+          id: n.id,
+          name: n.name,
+          type: 'note' as const,
+          children: [],
+        })),
       };
     });
     res.json(tree);

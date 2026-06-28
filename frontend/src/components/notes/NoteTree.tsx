@@ -1,262 +1,183 @@
 import { useState, useEffect, useCallback } from 'react';
-import notesService, { type TreeNode } from '../../services/notesService';
+import notesService from '../../services/notesService';
+import { useNavigationActions } from '../../contexts/NavigationContext';
 
-interface Props {
-  onSelectPage: (pageId: number) => void;
+interface Notebook {
+  id: number;
+  name: string;
+  sort_order: number;
 }
 
-interface ContextMenu {
-  x: number;
-  y: number;
-  node: TreeNode;
-}
-
-interface DragData {
-  node: TreeNode;
-  parentId: number | null;
-}
-
-export default function NoteTree({ onSelectPage }: Props) {
-  const [tree, setTree] = useState<TreeNode[]>([]);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
+export default function NoteTree() {
+  const { selectedNoteId, selectNote } = useNavigationActions();
+  const [notebooks, setNotebooks] = useState<Notebook[]>([]);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
-  const [menu, setMenu] = useState<ContextMenu | null>(null);
+  const [showNew, setShowNew] = useState(false);
+  const [newName, setNewName] = useState('');
 
   const load = useCallback(async () => {
-    try { setTree(await notesService.getTree()); } catch (e) { console.error(e); }
+    try { setNotebooks(await notesService.getNotebooks()); } catch (e) { console.error(e); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  function toggleExpand(key: string) {
-    setExpanded(prev => {
-      const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
-      return next;
-    });
+  async function handleCreate() {
+    if (!newName.trim()) return;
+    try { await notesService.createNotebook(newName.trim()); setNewName(''); setShowNew(false); load(); } catch (e) { console.error(e); }
   }
 
-  function handleSelect(node: TreeNode) {
-    if (node.type === 'page') {
-      setSelectedId(node.id);
-      onSelectPage(node.id);
-    } else {
-      toggleExpand(node.type + '_' + node.id);
-    }
+  async function handleRename(id: number) {
+    if (!editName.trim()) { setEditingId(null); return; }
+    try { await notesService.updateNotebook(id, { name: editName.trim() }); setEditingId(null); load(); } catch (e) { console.error(e); }
   }
 
-  function handleContextMenu(e: React.MouseEvent, node: TreeNode) {
-    e.preventDefault();
-    e.stopPropagation();
-    setMenu({ x: e.clientX, y: e.clientY, node });
-  }
-
-  async function handleCreateChild(parent: TreeNode) {
-    setMenu(null);
-    if (parent.type === 'notebook') {
-      await notesService.createNote(parent.id, '新笔记');
-    } else if (parent.type === 'note') {
-      const page = await notesService.createPage(parent.id, '新笔记页');
-      onSelectPage(page.id);
-    }
-    load();
-  }
-
-  async function handleDelete(node: TreeNode) {
-    setMenu(null);
-    if (!confirm(`确定删除「${node.name}」？`)) return;
-    if (node.type === 'notebook') await notesService.deleteNotebook(node.id);
-    else if (node.type === 'note') await notesService.deleteNote(node.id);
-    else await notesService.deletePage(node.id);
-    if (node.type === 'page' && selectedId === node.id) setSelectedId(null);
-    load();
-  }
-
-  function startRename(node: TreeNode) {
-    setMenu(null);
-    setEditingId(node.type + '_' + node.id);
-    setEditName(node.name);
-  }
-
-  async function finishRename(node: TreeNode) {
-    const name = editName.trim();
-    if (name && name !== node.name) {
-      if (node.type === 'notebook') await notesService.updateNotebook(node.id, { name });
-      else if (node.type === 'note') await notesService.updateNote(node.id, { name });
-      else await notesService.updatePage(node.id, { title: name });
-      load();
-    }
-    setEditingId(null);
-  }
-
-  function handleDragStart(e: React.DragEvent, node: TreeNode, parentId: number | null) {
-    const data: DragData = { node, parentId };
-    e.dataTransfer.setData('text/plain', JSON.stringify(data));
-    e.dataTransfer.effectAllowed = 'move';
-  }
-
-  function handleDrop(e: React.DragEvent, target: TreeNode, targetParentId: number | null) {
-    e.preventDefault();
-    const raw = e.dataTransfer.getData('text/plain');
-    if (!raw) return;
-    const { node: source, parentId: sourceParentId } = JSON.parse(raw) as DragData;
-    if (source.id === target.id) return;
-
-    // Same-level reorder: same type + same parent
-    if (source.type === target.type && source.type !== 'notebook' && sourceParentId === targetParentId) {
-      // Reorder within same parent: move source right after target
-      if (source.type === 'page') {
-        notesService.updatePage(source.id, { sort_order: target.id * 10 + 5 }).then(load).catch(console.error);
-      } else if (source.type === 'note') {
-        notesService.updateNote(source.id, { sort_order: target.id * 10 + 5 }).then(load).catch(console.error);
-      }
-      return;
-    }
-
-    // Cross-level move
-    if (source.type === 'page' && target.type === 'note' && source.id !== target.id) {
-      notesService.updatePage(source.id, { note_id: target.id }).then(load).catch(console.error);
-    } else if (source.type === 'note' && target.type === 'notebook' && source.id !== target.id) {
-      notesService.updateNote(source.id, { notebook_id: target.id }).then(load).catch(console.error);
-    }
-  }
-
-  function renderNode(node: TreeNode, depth: number, parentId: number | null) {
-    const key = node.type + '_' + node.id;
-    const isExpanded = expanded.has(key);
-    const isSelected = node.type === 'page' && selectedId === node.id;
-    const isEditing = editingId === key;
-    const isBranch = node.type !== 'page';
-    const padLeft = 12 + depth * 16;
-
-    let onDragOver: React.DragEventHandler | undefined;
-    if (isBranch) {
-      onDragOver = e => e.preventDefault();
-    } else if (node.type === 'page') {
-      onDragOver = e => e.preventDefault();
-    }
-
-    return (
-      <div key={key}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '4px 8px',
-            paddingLeft: padLeft + 'px',
-            cursor: 'pointer',
-            background: isSelected ? '#e6f7f5' : 'transparent',
-            borderRadius: '4px',
-            margin: '1px 4px',
-            userSelect: 'none',
-          }}
-          onClick={() => handleSelect(node)}
-          onContextMenu={e => handleContextMenu(e, node)}
-          draggable
-          onDragStart={e => handleDragStart(e, node, parentId)}
-          onDragOver={onDragOver}
-          onDrop={e => handleDrop(e, node, parentId)}
-        >
-          <span style={{
-            width: '16px', fontSize: '10px', color: '#999',
-            visibility: isBranch ? 'visible' : 'hidden',
-            transform: isExpanded ? 'rotate(90deg)' : 'none',
-            transition: 'transform 0.15s',
-          }}>▶</span>
-
-          <span style={{ marginRight: '6px', fontSize: '14px' }}>
-            {node.type === 'notebook' ? '📓' : node.type === 'note' ? '📝' : '📄'}
-          </span>
-
-          {isEditing ? (
-            <input
-              autoFocus
-              style={{
-                flex: 1, border: '1px solid #4ecdc4', borderRadius: '3px',
-                padding: '1px 4px', fontSize: '13px', outline: 'none',
-              }}
-              value={editName}
-              onChange={e => setEditName(e.target.value)}
-              onBlur={() => finishRename(node)}
-              onKeyDown={e => { if (e.key === 'Enter') finishRename(node); if (e.key === 'Escape') setEditingId(null); }}
-              onClick={e => e.stopPropagation()}
-            />
-          ) : (
-            <span style={{
-              fontSize: node.type === 'notebook' ? '14px' : '13px',
-              fontWeight: node.type === 'notebook' ? 600 : node.type === 'note' ? 500 : 400,
-              color: node.type === 'page' ? '#555' : '#222',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              flex: 1,
-            }}>
-              {node.name}
-            </span>
-          )}
-        </div>
-
-        {isBranch && isExpanded && node.children?.map((child, i) => renderNode(child, depth + 1, node.id))}
-      </div>
-    );
+  async function handleDelete(id: number) {
+    if (!confirm('确定删除此笔记本？')) return;
+    try { await notesService.deleteNotebook(id); load(); } catch (e) { console.error(e); }
   }
 
   return (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{
+      height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      background: 'transparent',
+    }}>
       <div style={{
-        padding: '8px', borderBottom: '1px solid #e0e0e0',
-        display: 'flex', alignItems: 'center', gap: '4px',
+        padding: 'var(--space-sm) var(--space-md)',
+        borderBottom: '1px solid var(--color-border)',
+        display: 'flex', alignItems: 'center', gap: 'var(--space-xs)',
+        flexShrink: 0,
       }}>
-        <span style={{ fontSize: '13px', fontWeight: 600, flex: 1, color: '#444' }}>笔记</span>
+        <span style={{
+          fontSize: 'var(--font-size-small)',
+          fontWeight: 'var(--font-weight-semibold)',
+          flex: 1,
+          color: 'var(--color-text-secondary)',
+        }}>{'\uD83D\uDCD3'} 笔记树</span>
         <button
+          onClick={() => setShowNew(!showNew)}
           title="新建笔记本"
-          onClick={async () => { await notesService.createNotebook('新笔记本'); load(); }}
           style={{
-            width: '24px', height: '24px', border: '1px solid #ddd', borderRadius: '4px',
-            background: '#fff', cursor: 'pointer', fontSize: '14px', lineHeight: '20px',
+            width: 22, height: 22,
+            border: '1px solid var(--color-border)',
+            borderRadius: 'var(--radius-sm)',
+            background: 'transparent',
+            color: 'var(--color-text-secondary)',
+            cursor: 'pointer',
+            fontSize: 'var(--font-size-body)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 0,
           }}
         >+</button>
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '4px 0' }}>
-        {tree.map(node => renderNode(node, 0, null))}
-        {tree.length === 0 && (
-          <div style={{ padding: '20px', color: '#999', fontSize: '13px', textAlign: 'center' }}>
-            点击 + 创建第一个笔记本
+      <div style={{ flex: 1, overflow: 'auto', padding: 'var(--space-xs)' }}>
+        {showNew && (
+          <div style={{ display: 'flex', gap: 'var(--space-xs)', marginBottom: 'var(--space-xs)' }}>
+            <input
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreate()}
+              placeholder="笔记本名称"
+              autoFocus
+              style={{
+                flex: 1,
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-sm)',
+                padding: 'var(--space-xs) var(--space-sm)',
+                fontSize: 'var(--font-size-small)',
+                background: 'var(--color-bg-primary)',
+                color: 'var(--color-text-primary)',
+                outline: 'none',
+              }}
+            />
+            <button onClick={handleCreate} style={{
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--color-bg-primary)',
+              color: 'var(--color-text-secondary)',
+              cursor: 'pointer',
+              padding: 'var(--space-xs) var(--space-sm)',
+              fontSize: 'var(--font-size-small)',
+            }}>OK</button>
+          </div>
+        )}
+
+        {notebooks.map(nb => (
+          <div
+            key={nb.id}
+            onClick={() => selectNote(nb.id)}
+            style={{
+              padding: 'var(--space-sm)',
+              cursor: 'pointer',
+              borderRadius: 'var(--radius-sm)',
+              marginBottom: '2px',
+              background: selectedNoteId === nb.id ? 'var(--color-bg-selected)' : 'transparent',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              color: selectedNoteId === nb.id ? 'var(--color-primary)' : 'var(--color-text-primary)',
+            }}
+          >
+            {editingId === nb.id ? (
+              <input
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                onBlur={() => handleRename(nb.id)}
+                onKeyDown={e => { if (e.key === 'Enter') handleRename(nb.id); if (e.key === 'Escape') setEditingId(null); }}
+                autoFocus
+                style={{
+                  flex: 1,
+                  border: '1px solid var(--color-primary)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: 'var(--space-xs) var(--space-sm)',
+                  fontSize: 'var(--font-size-small)',
+                  background: 'var(--color-bg-primary)',
+                  color: 'var(--color-text-primary)',
+                  outline: 'none',
+                }}
+                onClick={e => e.stopPropagation()}
+              />
+            ) : (
+              <span
+                title={nb.name}
+                onDoubleClick={() => { setEditingId(nb.id); setEditName(nb.name); }}
+                style={{
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  fontSize: 'var(--font-size-small)',
+                }}
+              >
+                {'\uD83D\uDCD3'} {nb.name}
+              </span>
+            )}
+            <button
+              onClick={e => { e.stopPropagation(); handleDelete(nb.id); }}
+              title="删除笔记本"
+              style={{
+                border: 'none', background: 'transparent',
+                color: 'var(--color-text-tertiary)',
+                cursor: 'pointer', fontSize: 'var(--font-size-small)',
+                padding: 'var(--space-xs)',
+                visibility: selectedNoteId === nb.id ? 'visible' : 'hidden',
+              }}
+            >{'✕'}</button>
+          </div>
+        ))}
+
+        {notebooks.length === 0 && !showNew && (
+          <div style={{
+            padding: 'var(--space-lg)',
+            color: 'var(--color-text-tertiary)',
+            fontSize: 'var(--font-size-small)',
+            textAlign: 'center',
+          }}>
+            点击 + 创建笔记本
           </div>
         )}
       </div>
-
-      {menu && (
-        <>
-          <div
-            style={{ position: 'fixed', inset: 0, zIndex: 99 }}
-            onClick={() => setMenu(null)}
-            onContextMenu={e => { e.preventDefault(); setMenu(null); }}
-          />
-          <div style={{
-            position: 'fixed', left: menu.x, top: menu.y, zIndex: 100,
-            background: '#fff', border: '1px solid #ddd', borderRadius: '6px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: '140px',
-            padding: '4px 0',
-          }}>
-            {(menu.node.type === 'notebook' || menu.node.type === 'note') && (
-              <div style={menuItemStyle} onClick={() => handleCreateChild(menu.node)}>
-                新建{menu.node.type === 'notebook' ? '笔记' : '笔记页'}
-              </div>
-            )}
-            <div style={menuItemStyle} onClick={() => startRename(menu.node)}>重命名</div>
-            <div style={{ ...menuItemStyle, color: '#e55' }} onClick={() => handleDelete(menu.node)}>删除</div>
-          </div>
-        </>
-      )}
     </div>
   );
 }
-
-const menuItemStyle: React.CSSProperties = {
-  padding: '6px 16px', fontSize: '13px', cursor: 'pointer',
-};

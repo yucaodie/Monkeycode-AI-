@@ -2,9 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import notesService from '../services/notesService';
 import type { NotePage } from '../types/notes';
 import NoteTree from '../components/notes/NoteTree';
+import PageList from '../components/notes/PageList';
 import TipTapEditor from '../components/notes/TipTapEditor';
 
 export default function NotesPage() {
+  const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
+  const [selectedNoteName, setSelectedNoteName] = useState('');
   const [selectedPage, setSelectedPage] = useState<NotePage | null>(null);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -38,7 +41,17 @@ export default function NotesPage() {
     };
   }, [selectedPage]);
 
+  async function handleSelectNote(noteId: number, noteName: string) {
+    setSelectedNoteId(noteId);
+    setSelectedNoteName(noteName);
+    setSelectedPage(null);
+  }
+
   async function handleSelectPage(pageId: number) {
+    if (!pageId) {
+      setSelectedPage(null);
+      return;
+    }
     try {
       const page = await notesService.getPage(pageId);
       setSelectedPage(page);
@@ -51,20 +64,19 @@ export default function NotesPage() {
     <div style={{ display: 'flex', height: '100%' }}>
       {/* Left: NoteTree */}
       <div style={{
-        width: '260px',
-        minWidth: '260px',
+        width: '220px',
+        minWidth: '220px',
         borderRight: '1px solid #e0e0e0',
         overflow: 'hidden',
         background: '#fafafa',
       }}>
-        <NoteTree onSelectPage={handleSelectPage} />
+        <NoteTree onSelectNote={handleSelectNote} />
       </div>
 
-      {/* Right: Editor */}
+      {/* Center: Editor */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {selectedPage ? (
           <>
-            {/* Page header */}
             <div style={{
               padding: '8px 20px', borderBottom: '1px solid #e0e0e0',
               fontSize: '13px', color: '#666', display: 'flex', alignItems: 'center', gap: '8px',
@@ -84,13 +96,21 @@ export default function NotesPage() {
           </>
         ) : (
           <div style={{ padding: '60px', color: '#bbb', textAlign: 'center', fontSize: '14px' }}>
-            从左侧笔记树中选择一个笔记页开始编辑<br />
-            <span style={{ fontSize: '12px', marginTop: '8px', display: 'block' }}>
-              右键点击笔记本或笔记可创建新的笔记页
-            </span>
+            {selectedNoteId
+              ? <>从右侧笔记页列表中选择一页开始编辑<br /><span style={{ fontSize: '12px', marginTop: '8px', display: 'block' }}>或点击右侧 + 按钮创建新的笔记页</span></>
+              : <>从左侧笔记树中选择一个笔记<br /><span style={{ fontSize: '12px', marginTop: '8px', display: 'block' }}>右键点击笔记本可创建新笔记</span></>
+            }
           </div>
         )}
       </div>
+
+      {/* Right: PageList */}
+      <PageList
+        noteId={selectedNoteId}
+        noteName={selectedNoteName}
+        selectedPageId={selectedPage?.id ?? null}
+        onSelectPage={handleSelectPage}
+      />
     </div>
   );
 }

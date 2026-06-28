@@ -68,21 +68,51 @@ export default function OutputPage() {
     }
   }
 
-  return (
-    <div style={{ maxWidth: '800px' }}>
-      <h2>模板输出</h2>
+  const inputBase: React.CSSProperties = {
+    width: '100%',
+    padding: 'var(--space-sm) var(--space-md)',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid var(--color-border)',
+    fontSize: 'var(--font-size-body)',
+    boxSizing: 'border-box',
+    background: 'var(--color-bg-primary)',
+    color: 'var(--color-text-primary)',
+  };
 
-      <div style={{ marginBottom: '16px' }}>
-        <h4 style={{ margin: '0 0 8px' }}>选择内容来源</h4>
-        <div style={{ display: 'flex', gap: '12px' }}>
+  const srcBtnStyle: React.CSSProperties = {
+    padding: 'var(--space-xs) var(--space-md)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-sm)',
+    background: 'var(--color-bg-secondary)',
+    cursor: 'pointer',
+    fontSize: 'var(--font-size-small)',
+    color: 'var(--color-text-primary)',
+  };
+
+  return (
+    <div style={{ maxWidth: 800, height: '100%', overflow: 'auto', padding: 'var(--space-xl)' }}>
+      <h2 style={{
+        margin: '0 0 var(--space-lg)',
+        fontSize: 'var(--font-size-h2)',
+        fontWeight: 'var(--font-weight-semibold)',
+        color: 'var(--color-text-primary)',
+      }}>模板输出</h2>
+
+      <div style={{ marginBottom: 'var(--space-lg)' }}>
+        <h4 style={{
+          margin: '0 0 var(--space-sm)',
+          fontSize: 'var(--font-size-body)',
+          color: 'var(--color-text-secondary)',
+        }}>选择内容来源</h4>
+        <div style={{ display: 'flex', gap: 'var(--space-md)', flexWrap: 'wrap' }}>
           {notebooks.map(nb => (
             <button key={nb.id} onClick={() => loadPages(nb.id)} style={srcBtnStyle}>
-              📓 {nb.name}
+              {nb.name}
             </button>
           ))}
           {files.slice(0, 5).map(f => (
             <button key={f.id} onClick={() => loadFileContent(f.id)} style={srcBtnStyle}>
-              📄 {f.name}
+              {f.name}
             </button>
           ))}
         </div>
@@ -93,16 +123,21 @@ export default function OutputPage() {
         onChange={e => setContent(e.target.value)}
         placeholder="在此粘贴内容，或点击上方来源加载..."
         rows={8}
-        style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '14px', resize: 'vertical' }}
+        style={{ ...inputBase, resize: 'vertical', marginBottom: 'var(--space-md)' }}
       />
 
-      <div style={{ display: 'flex', gap: '16px', marginTop: '12px', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 'var(--space-lg)', alignItems: 'flex-start' }}>
         <div style={{ flex: 1 }}>
-          <label style={{ fontSize: '13px', color: '#666' }}>模板</label>
+          <label style={{
+            display: 'block',
+            fontSize: 'var(--font-size-small)',
+            color: 'var(--color-text-secondary)',
+            marginBottom: 'var(--space-xs)',
+          }}>模板</label>
           <select
             value={selectedTemplate || ''}
             onChange={e => setSelectedTemplate(e.target.value ? Number(e.target.value) : null)}
-            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd', marginTop: '4px' }}
+            style={inputBase}
           >
             <option value="">不使用模板</option>
             {templates.map(t => (
@@ -111,13 +146,18 @@ export default function OutputPage() {
           </select>
         </div>
         <div style={{ flex: 2 }}>
-          <label style={{ fontSize: '13px', color: '#666' }}>自定义指令</label>
+          <label style={{
+            display: 'block',
+            fontSize: 'var(--font-size-small)',
+            color: 'var(--color-text-secondary)',
+            marginBottom: 'var(--space-xs)',
+          }}>自定义指令</label>
           <textarea
             value={prompt}
             onChange={e => setPrompt(e.target.value)}
             placeholder="例如：帮我写成周报格式..."
             rows={2}
-            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd', fontSize: '13px', resize: 'vertical', marginTop: '4px' }}
+            style={{ ...inputBase, resize: 'vertical' }}
           />
         </div>
       </div>
@@ -126,8 +166,14 @@ export default function OutputPage() {
         onClick={handleGenerate}
         disabled={loading || !content.trim()}
         style={{
-          marginTop: '16px', padding: '10px 24px', background: '#4ecdc4', color: '#fff',
-          border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '15px',
+          marginTop: 'var(--space-lg)',
+          padding: 'var(--space-sm) var(--space-2xl)',
+          background: 'var(--color-primary)',
+          color: 'var(--color-text-inverse)',
+          border: 'none',
+          borderRadius: 'var(--radius-md)',
+          cursor: loading ? 'not-allowed' : 'pointer',
+          fontSize: 'var(--font-size-body)',
           opacity: loading ? 0.6 : 1,
         }}
       >
@@ -135,16 +181,25 @@ export default function OutputPage() {
       </button>
 
       {result && (
-        <div style={{ marginTop: '20px', padding: '16px', background: '#f8f8f8', borderRadius: '8px', border: '1px solid #eee' }}>
-          <h4 style={{ margin: '0 0 8px' }}>生成结果</h4>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: '14px', lineHeight: 1.8 }}>{result}</pre>
+        <div style={{
+          marginTop: 'var(--space-xl)',
+          padding: 'var(--space-lg)',
+          background: 'var(--color-bg-secondary)',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid var(--color-border-light)',
+        }}>
+          <h4 style={{
+            margin: '0 0 var(--space-sm)',
+            color: 'var(--color-text-primary)',
+          }}>生成结果</h4>
+          <pre style={{
+            whiteSpace: 'pre-wrap',
+            fontSize: 'var(--font-size-body)',
+            lineHeight: 'var(--line-height-relaxed)',
+            color: 'var(--color-text-primary)',
+          }}>{result}</pre>
         </div>
       )}
     </div>
   );
 }
-
-const srcBtnStyle: React.CSSProperties = {
-  padding: '4px 12px', border: '1px solid #ddd', borderRadius: '4px',
-  background: '#f8f8f8', cursor: 'pointer', fontSize: '12px',
-};

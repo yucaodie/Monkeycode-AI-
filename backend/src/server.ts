@@ -33,6 +33,7 @@ import outputRoutes from './routes/output.js';
 import modelRoutes from './routes/models.js';
 import knowledgeBaseRoutes from './routes/knowledge-base.js';
 import notesRoutes from './routes/notes.js';
+import qaRoutes from './routes/qa.js';
 
 app.use('/api/knowledge', knowledgeRoutes);
 app.use('/api/search', searchRoutes);
@@ -41,6 +42,7 @@ app.use('/api/output', outputRoutes);
 app.use('/api/models', modelRoutes);
 app.use('/api/knowledge-base', knowledgeBaseRoutes);
 app.use('/api/notes', notesRoutes);
+app.use('/api/qa', qaRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
