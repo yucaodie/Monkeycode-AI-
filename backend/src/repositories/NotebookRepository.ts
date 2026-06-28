@@ -35,7 +35,11 @@ export class NotebookRepository {
   list(userId: number = 1): Notebook[] {
     const db = getDatabase();
     return db.prepare(
-      `SELECT n.*, (SELECT COUNT(*) FROM notes WHERE notebook_id = n.id) as note_count
+      `SELECT n.*, (
+         SELECT COUNT(*) FROM note_pages np
+         JOIN notes nt ON nt.id = np.note_id
+         WHERE nt.notebook_id = n.id
+       ) as note_count
        FROM notebooks n WHERE n.user_id = ? ORDER BY n.sort_order ASC, n.created_at ASC`
     ).all(userId) as Notebook[];
   }

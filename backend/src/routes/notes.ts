@@ -69,6 +69,18 @@ router.delete('/notebooks/:id', (req, res) => {
   }
 });
 
+router.get('/notebooks/:notebookId/pages', (req, res) => {
+  try {
+    const notebookId = Number(req.params.notebookId);
+    const notebook = notebookRepo.getById(notebookId);
+    if (!notebook) return res.status(404).json({ error: 'Notebook not found' });
+    const pages = pageRepo.listByNotebook(notebookId);
+    res.json(pages);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to list pages' });
+  }
+});
+
 // ==================== Tree ====================
 
 router.get('/tree', (req, res) => {

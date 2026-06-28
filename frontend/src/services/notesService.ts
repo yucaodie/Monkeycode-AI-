@@ -59,6 +59,11 @@ const notesService = {
     return data;
   },
 
+  async getNotebookPages(notebookId: number): Promise<(NotePage & { note_name: string })[]> {
+    const { data } = await apiClient.get(`/notes/notebooks/${notebookId}/pages`);
+    return data;
+  },
+
   async createPage(noteId: number, title: string): Promise<NotePage> {
     const { data } = await apiClient.post(`/notes/notes/${noteId}/pages`, { title });
     return data;

@@ -7,6 +7,7 @@ export interface NavigationState {
   notes: {
     selectedNoteId: number | null;
     selectedPageId: number | null;
+    notebooksVersion: number;
   };
   kb: {
     selectedFolderId: number | null;
@@ -17,13 +18,15 @@ export interface NavigationState {
 type NavigationAction =
   | { type: 'NAVIGATE_TO'; view: ActiveView }
   | { type: 'SELECT_NOTE'; noteId: number }
+  | { type: 'DESELECT_NOTE' }
   | { type: 'SELECT_PAGE'; pageId: number }
+  | { type: 'REFRESH_NOTEBOOKS' }
   | { type: 'SELECT_FOLDER'; folderId: number }
   | { type: 'SELECT_FILE'; fileId: number };
 
 const initialState: NavigationState = {
   activeView: 'notes',
-  notes: { selectedNoteId: null, selectedPageId: null },
+  notes: { selectedNoteId: null, selectedPageId: null, notebooksVersion: 0 },
   kb: { selectedFolderId: null, selectedFileId: null },
 };
 
@@ -36,13 +39,25 @@ function navigationReducer(state: NavigationState, action: NavigationAction): Na
       return {
         ...state,
         activeView: 'notes',
-        notes: { selectedNoteId: action.noteId, selectedPageId: null },
+        notes: { ...state.notes, selectedNoteId: action.noteId, selectedPageId: null },
+      };
+
+    case 'DESELECT_NOTE':
+      return {
+        ...state,
+        notes: { ...state.notes, selectedNoteId: null, selectedPageId: null },
       };
 
     case 'SELECT_PAGE':
       return {
         ...state,
         notes: { ...state.notes, selectedPageId: action.pageId },
+      };
+
+    case 'REFRESH_NOTEBOOKS':
+      return {
+        ...state,
+        notes: { ...state.notes, notebooksVersion: state.notes.notebooksVersion + 1 },
       };
 
     case 'SELECT_FOLDER':
@@ -111,7 +126,13 @@ export function useNotesActions() {
   const selectPage = useCallback((pageId: number) => {
     dispatch({ type: 'SELECT_PAGE', pageId });
   }, [dispatch]);
-  return { selectNote, selectPage };
+  const deselectNote = useCallback(() => {
+    dispatch({ type: 'DESELECT_NOTE' });
+  }, [dispatch]);
+  const refreshNotebooks = useCallback(() => {
+    dispatch({ type: 'REFRESH_NOTEBOOKS' });
+  }, [dispatch]);
+  return { selectNote, selectPage, deselectNote, refreshNotebooks };
 }
 
 export function useKbActions() {

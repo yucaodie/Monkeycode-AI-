@@ -1,6 +1,10 @@
 import { getDatabase } from '../utils/database.js';
 import { NotePage, CreateNotePageDTO, UpdateNotePageDTO } from '../models/NotePage.js';
 
+export interface NotePageWithNote extends NotePage {
+  note_name: string;
+}
+
 export class NotePageRepository {
   create(dto: CreateNotePageDTO, userId: number = 1): NotePage {
     const db = getDatabase();
@@ -42,5 +46,16 @@ export class NotePageRepository {
     return db.prepare(
       'SELECT id, note_id, user_id, title, sort_order, created_at, updated_at FROM note_pages WHERE note_id = ? AND user_id = ? ORDER BY sort_order ASC, created_at ASC'
     ).all(noteId, userId) as NotePage[];
+  }
+
+  listByNotebook(notebookId: number, userId: number = 1): NotePageWithNote[] {
+    const db = getDatabase();
+    return db.prepare(
+      `SELECT np.id, np.note_id, np.user_id, np.title, np.sort_order, np.created_at, np.updated_at, n.name as note_name
+       FROM note_pages np
+       JOIN notes n ON n.id = np.note_id
+       WHERE n.notebook_id = ? AND np.user_id = ?
+       ORDER BY n.sort_order ASC, np.sort_order ASC`
+    ).all(notebookId, userId) as NotePageWithNote[];
   }
 }
