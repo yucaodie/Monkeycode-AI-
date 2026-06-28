@@ -1,15 +1,13 @@
-import { createContext, useContext, useReducer, type ReactNode, type Dispatch } from 'react';
+import { createContext, useContext, useReducer, useCallback, type ReactNode, type Dispatch } from 'react';
 
 export type ActiveView = 'notes' | 'kb' | 'qa' | 'output' | 'settings';
 
 export interface NavigationState {
   activeView: ActiveView;
-
   notes: {
     selectedNoteId: number | null;
     selectedPageId: number | null;
   };
-
   kb: {
     selectedFolderId: number | null;
     selectedFileId: number | null;
@@ -25,14 +23,8 @@ type NavigationAction =
 
 const initialState: NavigationState = {
   activeView: 'notes',
-  notes: {
-    selectedNoteId: null,
-    selectedPageId: null,
-  },
-  kb: {
-    selectedFolderId: null,
-    selectedFileId: null,
-  },
+  notes: { selectedNoteId: null, selectedPageId: null },
+  kb: { selectedFolderId: null, selectedFileId: null },
 };
 
 function navigationReducer(state: NavigationState, action: NavigationAction): NavigationState {
@@ -71,59 +63,75 @@ function navigationReducer(state: NavigationState, action: NavigationAction): Na
   }
 }
 
-interface NavigationContextValue {
-  state: NavigationState;
-  dispatch: Dispatch<NavigationAction>;
-}
-
-const NavigationContext = createContext<NavigationContextValue | null>(null);
+const ActiveViewContext = createContext<ActiveView>('notes');
+const NotesStateContext = createContext<NavigationState['notes']>(initialState.notes);
+const KbStateContext = createContext<NavigationState['kb']>(initialState.kb);
+const DispatchContext = createContext<Dispatch<NavigationAction>>(() => {});
 
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(navigationReducer, initialState);
 
   return (
-    <NavigationContext.Provider value={{ state, dispatch }}>
-      {children}
-    </NavigationContext.Provider>
+    <DispatchContext.Provider value={dispatch}>
+      <ActiveViewContext.Provider value={state.activeView}>
+        <NotesStateContext.Provider value={state.notes}>
+          <KbStateContext.Provider value={state.kb}>
+            {children}
+          </KbStateContext.Provider>
+        </NotesStateContext.Provider>
+      </ActiveViewContext.Provider>
+    </DispatchContext.Provider>
   );
 }
 
-export function useNavigation() {
-  const ctx = useContext(NavigationContext);
-  if (!ctx) {
-    throw new Error('useNavigation must be used within NavigationProvider');
-  }
-  return ctx;
+export function useActiveView() {
+  return useContext(ActiveViewContext);
+}
+
+export function useNotesState() {
+  return useContext(NotesStateContext);
+}
+
+export function useKbState() {
+  return useContext(KbStateContext);
+}
+
+export function useNavigate() {
+  const dispatch = useContext(DispatchContext);
+  return useCallback((view: ActiveView) => {
+    dispatch({ type: 'NAVIGATE_TO', view });
+  }, [dispatch]);
+}
+
+export function useNotesActions() {
+  const dispatch = useContext(DispatchContext);
+  const selectNote = useCallback((noteId: number) => {
+    dispatch({ type: 'SELECT_NOTE', noteId });
+  }, [dispatch]);
+  const selectPage = useCallback((pageId: number) => {
+    dispatch({ type: 'SELECT_PAGE', pageId });
+  }, [dispatch]);
+  return { selectNote, selectPage };
+}
+
+export function useKbActions() {
+  const dispatch = useContext(DispatchContext);
+  const selectFolder = useCallback((folderId: number) => {
+    dispatch({ type: 'SELECT_FOLDER', folderId });
+  }, [dispatch]);
+  const selectFile = useCallback((fileId: number) => {
+    dispatch({ type: 'SELECT_FILE', fileId });
+  }, [dispatch]);
+  return { selectFolder, selectFile };
 }
 
 export function useNavigationActions() {
-  const { dispatch, state } = useNavigation();
-
   return {
-    activeView: state.activeView,
-    selectedNoteId: state.notes.selectedNoteId,
-    selectedPageId: state.notes.selectedPageId,
-    selectedFolderId: state.kb.selectedFolderId,
-    selectedFileId: state.kb.selectedFileId,
-
-    navigateTo(view: ActiveView) {
-      dispatch({ type: 'NAVIGATE_TO', view });
-    },
-
-    selectNote(noteId: number) {
-      dispatch({ type: 'SELECT_NOTE', noteId });
-    },
-
-    selectPage(pageId: number) {
-      dispatch({ type: 'SELECT_PAGE', pageId });
-    },
-
-    selectFolder(folderId: number) {
-      dispatch({ type: 'SELECT_FOLDER', folderId });
-    },
-
-    selectFile(fileId: number) {
-      dispatch({ type: 'SELECT_FILE', fileId });
-    },
+    activeView: useActiveView(),
+    ...useNotesState(),
+    ...useKbState(),
+    navigateTo: useNavigate(),
+    ...useNotesActions(),
+    ...useKbActions(),
   };
 }

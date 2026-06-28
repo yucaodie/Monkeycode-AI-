@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import kbService from '../services/kbService';
 import type { KnowledgeFile } from '../types/knowledgeBase';
-import { useNavigationActions } from '../contexts/NavigationContext';
+import { useKbState, useKbActions } from '../contexts/NavigationContext';
 import ResizablePanels from './ResizablePanels';
 import FilePreview from './knowledge-base/FilePreview';
 
@@ -13,18 +13,38 @@ const FILE_ICON: Record<string, string> = {
 };
 
 export default function KBWorkspace() {
-  const { selectedFolderId, selectedFileId, selectFile } = useNavigationActions();
+  const { selectedFolderId, selectedFileId } = useKbState();
+  const { selectFile } = useKbActions();
   const [files, setFiles] = useState<KnowledgeFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<KnowledgeFile | null>(null);
+  const [loadingFiles, setLoadingFiles] = useState(false);
 
-  const refreshFiles = useCallback(async () => {
-    if (!selectedFolderId) { setFiles([]); return; }
-    try { setFiles(await kbService.getFiles(selectedFolderId)); } catch (e) { console.error(e); }
+  const fetchIdRef = useRef(0);
+
+  const fetchFiles = (folderId: number) => {
+    const fetchId = ++fetchIdRef.current;
+    setLoadingFiles(true);
+    setFiles([]);
+    kbService.getFiles(folderId)
+      .then(data => {
+        if (fetchId === fetchIdRef.current) {
+          setFiles(data);
+          setLoadingFiles(false);
+        }
+      })
+      .catch(e => {
+        if (fetchId === fetchIdRef.current) {
+          console.error(e);
+          setLoadingFiles(false);
+        }
+      });
+  };
+
+  useEffect(() => {
+    if (!selectedFolderId) { setFiles([]); setLoadingFiles(false); return; }
+    fetchFiles(selectedFolderId);
   }, [selectedFolderId]);
 
-  useEffect(() => { refreshFiles(); }, [refreshFiles]);
-
-  // Load file detail when selectedFileId changes
   useEffect(() => {
     if (!selectedFileId) { setSelectedFile(null); return; }
     kbService.getFile(selectedFileId).then(setSelectedFile).catch(console.error);
@@ -35,7 +55,7 @@ export default function KBWorkspace() {
     if (!file || !selectedFolderId) return;
     try {
       await kbService.uploadFile(selectedFolderId, file, file.name);
-      refreshFiles();
+      fetchFiles(selectedFolderId);
     } catch (err) { console.error(err); }
     e.target.value = '';
   }
@@ -45,7 +65,7 @@ export default function KBWorkspace() {
     try {
       await kbService.deleteFile(fileId);
       if (selectedFileId === fileId) selectFile(0);
-      refreshFiles();
+      if (selectedFolderId) fetchFiles(selectedFolderId);
     } catch (e) { console.error(e); }
   }
 
@@ -54,8 +74,8 @@ export default function KBWorkspace() {
       {selectedFolderId ? (
         <ResizablePanels
           direction="horizontal"
-          defaultRatios={[0.35, 0.65]}
-          minSizes={[200, 300]}
+          defaultRatios={[0.25, 0.75]}
+          minSizes={[180, 300]}
           storageKey="panel-ratio-kb"
           className="resizable-horizontal workspace-kb"
         >
@@ -88,7 +108,22 @@ export default function KBWorkspace() {
               </label>
             </div>
             <div style={{ flex: 1, overflow: 'auto' }}>
-              {files.map(f => (
+              {loadingFiles ? (
+                <div style={{
+                  padding: 'var(--space-xl)', color: 'var(--color-text-tertiary)',
+                  fontSize: 'var(--font-size-small)', textAlign: 'center',
+                }}>
+                  加载中...
+                </div>
+              ) : files.length === 0 ? (
+                <div style={{
+                  padding: 'var(--space-xl)', color: 'var(--color-text-tertiary)',
+                  fontSize: 'var(--font-size-small)', textAlign: 'center',
+                }}>
+                  点击 + 上传文件
+                </div>
+              ) : (
+                files.map(f => (
                 <div
                   key={f.id}
                   onClick={() => selectFile(f.id)}
@@ -116,14 +151,7 @@ export default function KBWorkspace() {
                     }}
                   >{'✕'}</button>
                 </div>
-              ))}
-              {files.length === 0 && (
-                <div style={{
-                  padding: 'var(--space-xl)', color: 'var(--color-text-tertiary)',
-                  fontSize: 'var(--font-size-small)', textAlign: 'center',
-                }}>
-                  点击 + 上传文件
-                </div>
+              ))
               )}
             </div>
           </div>

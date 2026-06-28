@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type ReactNode } from 'react';
+import { useState, useRef, useCallback, Fragment, type ReactNode } from 'react';
 
 interface ResizablePanelsProps {
   direction: 'horizontal' | 'vertical';
@@ -149,8 +149,8 @@ export default function ResizablePanels({
       }}
     >
       {Array.isArray(children) && children.map((child, i) => (
-        <div key={i} style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, flex: ratios[i] || 1 }}>
-           {i > 0 && (
+        <Fragment key={i}>
+          {i > 0 && (
             <div
               className="resizable-divider"
               onMouseDown={(e) => handleDividerMouseDown(i - 1, e)}
@@ -159,8 +159,7 @@ export default function ResizablePanels({
               onMouseLeave={() => setHoveredDivider(null)}
               style={{
                 [isHorizontal ? 'width' : 'height']: DIVIDER_SIZE,
-                minWidth: isHorizontal ? DIVIDER_SIZE : undefined,
-                minHeight: isHorizontal ? undefined : DIVIDER_SIZE,
+                [isHorizontal ? 'minWidth' : 'minHeight']: DIVIDER_SIZE,
                 cursor: isHorizontal ? 'col-resize' : 'row-resize',
                 flexShrink: 0,
                 zIndex: 10,
@@ -174,7 +173,7 @@ export default function ResizablePanels({
             >
               <div style={{
                 [isHorizontal ? 'width' : 'height']: LINE_SIZE,
-                [isHorizontal ? 'height' : 'width']: '100%',
+                alignSelf: 'stretch',
                 borderRadius: 2,
                 background: hoveredDivider === i - 1 ? 'var(--color-primary)' : 'var(--color-border)',
                 transition: 'background 0.15s',
@@ -182,19 +181,21 @@ export default function ResizablePanels({
             </div>
           )}
 
-          <div
-            className={`resizable-panel ${i === 0 ? (isHorizontal ? 'resizable-panel-left' : 'resizable-panel-top') : ''} ${i === count - 1 ? (isHorizontal ? 'resizable-panel-right' : 'resizable-panel-bottom') : ''}`}
-            style={{
-            flex: 1,
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 0,
-            minHeight: 0,
-          }}>
-            {child}
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, flex: ratios[i] || 1 }}>
+            <div
+              className={`resizable-panel ${i === 0 ? (isHorizontal ? 'resizable-panel-left' : 'resizable-panel-top') : ''} ${i === count - 1 ? (isHorizontal ? 'resizable-panel-right' : 'resizable-panel-bottom') : ''}`}
+              style={{
+              flex: 1,
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 0,
+              minHeight: 0,
+            }}>
+              {child}
+            </div>
           </div>
-        </div>
+        </Fragment>
       ))}
     </div>
   );

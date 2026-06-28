@@ -1,36 +1,52 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { KnowledgeFolder } from '../../types/knowledgeBase';
 import kbService from '../../services/kbService';
-import { useNavigationActions } from '../../contexts/NavigationContext';
+import { useKbState, useKbActions } from '../../contexts/NavigationContext';
 
 export default function FolderList() {
-  const { selectedFolderId, selectFolder } = useNavigationActions();
+  const { selectedFolderId } = useKbState();
+  const { selectFolder } = useKbActions();
   const [folders, setFolders] = useState<KnowledgeFolder[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState('');
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
-    try { setFolders(await kbService.getFolders()); } catch (e) { console.error(e); }
+    try { setFolders((await kbService.getFolders()).reverse()); } catch (e) { console.error(e); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   async function handleCreate() {
-    if (!newName.trim()) return;
-    try { await kbService.createFolder(newName.trim()); setNewName(''); setShowNew(false); load(); } catch (e) { console.error(e); }
+    const name = newName.trim();
+    if (!name) return;
+    if (folders.some(f => f.name === name)) { alert('同名文件夹已存在'); return; }
+    try {
+      const folder = await kbService.createFolder(name);
+      setFolders(prev => [folder, ...prev]);
+      setNewName(''); setShowNew(false);
+    } catch (e) { console.error(e); }
   }
 
   async function handleRename(id: number) {
-    if (!editName.trim()) { setEditingId(null); return; }
-    try { await kbService.updateFolder(id, { name: editName.trim() }); setEditingId(null); load(); } catch (e) { console.error(e); }
+    const name = editName.trim();
+    if (!name) { setEditingId(null); return; }
+    try {
+      const folder = await kbService.updateFolder(id, { name });
+      setFolders(prev => prev.map(f => f.id === id ? folder : f));
+      setEditingId(null);
+    } catch (e) { console.error(e); }
   }
 
   async function handleDelete(id: number) {
     if (!confirm('确定删除此文件夹？')) return;
-    try { await kbService.deleteFolder(id); load(); } catch (e) { console.error(e); }
+    try {
+      await kbService.deleteFolder(id);
+      setFolders(prev => prev.filter(f => f.id !== id));
+    } catch (e) { console.error(e); }
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -112,13 +128,21 @@ export default function FolderList() {
         {folders.map(f => (
           <div
             key={f.id}
-            onClick={() => selectFolder(f.id)}
+            onClick={() => {
+              if (selectedFolderId === f.id) { setEditingId(f.id); setEditName(f.name); }
+              else selectFolder(f.id);
+            }}
+            onMouseEnter={() => setHoveredId(f.id)}
+            onMouseLeave={() => setHoveredId(null)}
             style={{
               padding: 'var(--space-sm)',
               cursor: 'pointer',
               borderRadius: 'var(--radius-sm)',
               marginBottom: '2px',
-              background: selectedFolderId === f.id ? 'var(--color-bg-selected)' : 'transparent',
+              background: selectedFolderId === f.id ? 'var(--color-bg-selected)'
+                : hoveredId === f.id ? 'var(--color-bg-hover)'
+                : 'transparent',
+              transition: 'background 0.15s',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -157,6 +181,16 @@ export default function FolderList() {
                 }}
               >
                 {'\uD83D\uDCC1'} {f.name}
+              </span>
+            )}
+            {f.file_count != null && (
+              <span style={{
+                fontSize: 'var(--font-size-small)',
+                color: 'var(--color-text-tertiary)',
+                marginLeft: 'var(--space-xs)',
+                flexShrink: 0,
+              }}>
+                {f.file_count}
               </span>
             )}
             <button

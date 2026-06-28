@@ -1,40 +1,57 @@
 import { useState, useEffect, useCallback } from 'react';
 import notesService from '../../services/notesService';
-import { useNavigationActions } from '../../contexts/NavigationContext';
+import { useNotesState, useNotesActions } from '../../contexts/NavigationContext';
 
 interface Notebook {
   id: number;
   name: string;
   sort_order: number;
+  note_count?: number;
 }
 
 export default function NoteTree() {
-  const { selectedNoteId, selectNote } = useNavigationActions();
+  const { selectedNoteId } = useNotesState();
+  const { selectNote } = useNotesActions();
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [newName, setNewName] = useState('');
+  const [hoveredId, setHoveredId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
-    try { setNotebooks(await notesService.getNotebooks()); } catch (e) { console.error(e); }
+    try { setNotebooks((await notesService.getNotebooks()).reverse()); } catch (e) { console.error(e); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   async function handleCreate() {
-    if (!newName.trim()) return;
-    try { await notesService.createNotebook(newName.trim()); setNewName(''); setShowNew(false); load(); } catch (e) { console.error(e); }
+    const name = newName.trim();
+    if (!name) return;
+    if (notebooks.some(nb => nb.name === name)) { alert('同名笔记本已存在'); return; }
+    try {
+      const nb = await notesService.createNotebook(name);
+      setNotebooks(prev => [nb, ...prev]);
+      setNewName(''); setShowNew(false);
+    } catch (e) { console.error(e); }
   }
 
   async function handleRename(id: number) {
-    if (!editName.trim()) { setEditingId(null); return; }
-    try { await notesService.updateNotebook(id, { name: editName.trim() }); setEditingId(null); load(); } catch (e) { console.error(e); }
+    const name = editName.trim();
+    if (!name) { setEditingId(null); return; }
+    try {
+      const nb = await notesService.updateNotebook(id, { name });
+      setNotebooks(prev => prev.map(n => n.id === id ? nb : n));
+      setEditingId(null);
+    } catch (e) { console.error(e); }
   }
 
   async function handleDelete(id: number) {
     if (!confirm('确定删除此笔记本？')) return;
-    try { await notesService.deleteNotebook(id); load(); } catch (e) { console.error(e); }
+    try {
+      await notesService.deleteNotebook(id);
+      setNotebooks(prev => prev.filter(n => n.id !== id));
+    } catch (e) { console.error(e); }
   }
 
   return (
@@ -106,13 +123,21 @@ export default function NoteTree() {
         {notebooks.map(nb => (
           <div
             key={nb.id}
-            onClick={() => selectNote(nb.id)}
+            onClick={() => {
+              if (selectedNoteId === nb.id) { setEditingId(nb.id); setEditName(nb.name); }
+              else selectNote(nb.id);
+            }}
+            onMouseEnter={() => setHoveredId(nb.id)}
+            onMouseLeave={() => setHoveredId(null)}
             style={{
               padding: 'var(--space-sm)',
               cursor: 'pointer',
               borderRadius: 'var(--radius-sm)',
               marginBottom: '2px',
-              background: selectedNoteId === nb.id ? 'var(--color-bg-selected)' : 'transparent',
+              background: selectedNoteId === nb.id ? 'var(--color-bg-selected)'
+                : hoveredId === nb.id ? 'var(--color-bg-hover)'
+                : 'transparent',
+              transition: 'background 0.15s',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -151,6 +176,16 @@ export default function NoteTree() {
                 }}
               >
                 {'\uD83D\uDCD3'} {nb.name}
+              </span>
+            )}
+            {nb.note_count != null && (
+              <span style={{
+                fontSize: 'var(--font-size-small)',
+                color: 'var(--color-text-tertiary)',
+                marginLeft: 'var(--space-xs)',
+                flexShrink: 0,
+              }}>
+                {nb.note_count}
               </span>
             )}
             <button

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import notesService from '../services/notesService';
 import type { NotePage } from '../types/notes';
-import { useNavigationActions } from '../contexts/NavigationContext';
+import { useNotesState, useNotesActions } from '../contexts/NavigationContext';
 import ResizablePanels from './ResizablePanels';
 import TipTapEditor from './notes/TipTapEditor';
 
@@ -14,14 +14,17 @@ interface PageWithNote {
 }
 
 export default function NotesWorkspace() {
-  const { selectedNoteId, selectedPageId, selectPage } = useNavigationActions();
+  const { selectedNoteId, selectedPageId } = useNotesState();
+  const { selectPage } = useNotesActions();
   const [pages, setPages] = useState<PageWithNote[]>([]);
   const [selectedPage, setSelectedPage] = useState<NotePage | null>(null);
   const [notebookName, setNotebookName] = useState('');
   const [firstNoteId, setFirstNoteId] = useState<number | null>(null);
+  const [loadingPages, setLoadingPages] = useState(false);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingContentRef = useRef<string | null>(null);
+  const fetchIdRef = useRef(0);
 
   useEffect(() => {
     if (!selectedNoteId) {
@@ -29,39 +32,53 @@ export default function NotesWorkspace() {
       setNotebookName('');
       setSelectedPage(null);
       setFirstNoteId(null);
+      setLoadingPages(false);
       return;
     }
-    // selectedNoteId is now a notebook ID
+
+    const fetchId = ++fetchIdRef.current;
+    setLoadingPages(true);
+    setPages([]);
+
     (async () => {
       try {
         const notes = await notesService.getNotes(selectedNoteId);
+        if (fetchId !== fetchIdRef.current) return;
         if (notes.length === 0) {
           setPages([]);
           setNotebookName('');
           setFirstNoteId(null);
+          setLoadingPages(false);
           return;
         }
 
         setNotebookName('');
         setFirstNoteId(notes[0].id);
 
-        const allPages: PageWithNote[] = [];
-        for (const note of notes) {
-          try {
-            const notePages = await notesService.getPages(note.id);
-            for (const p of notePages) {
-              allPages.push({
+        const pageResults = await Promise.all(
+          notes.map(async (note) => {
+            try {
+              const notePages = await notesService.getPages(note.id);
+              return notePages.map(p => ({
                 id: p.id,
                 title: p.title || '无标题',
                 content: p.content || '',
                 noteId: note.id,
                 noteName: note.name,
-              });
-            }
-          } catch { /* skip notes with no pages */ }
+              }));
+            } catch { return []; }
+          })
+        );
+
+        if (fetchId !== fetchIdRef.current) return;
+        setPages(pageResults.flat());
+        setLoadingPages(false);
+      } catch (e) {
+        if (fetchId === fetchIdRef.current) {
+          console.error(e);
+          setLoadingPages(false);
         }
-        setPages(allPages);
-      } catch (e) { console.error(e); }
+      }
     })();
   }, [selectedNoteId]);
 
@@ -149,7 +166,22 @@ export default function NotesWorkspace() {
               >+</button>
             </div>
             <div style={{ flex: 1, overflow: 'auto' }}>
-              {pages.map(page => (
+              {loadingPages ? (
+                <div style={{
+                  padding: 'var(--space-xl)', color: 'var(--color-text-tertiary)',
+                  fontSize: 'var(--font-size-small)', textAlign: 'center',
+                }}>
+                  加载中...
+                </div>
+              ) : pages.length === 0 ? (
+                <div style={{
+                  padding: 'var(--space-xl)', color: 'var(--color-text-tertiary)',
+                  fontSize: 'var(--font-size-small)', textAlign: 'center',
+                }}>
+                  点击 + 创建笔记页
+                </div>
+              ) : (
+                pages.map(page => (
                 <div
                   key={page.id}
                   onClick={() => selectPage(page.id)}
@@ -172,14 +204,7 @@ export default function NotesWorkspace() {
                     {page.title || '无标题'}
                   </span>
                 </div>
-              ))}
-              {pages.length === 0 && (
-                <div style={{
-                  padding: 'var(--space-xl)', color: 'var(--color-text-tertiary)',
-                  fontSize: 'var(--font-size-small)', textAlign: 'center',
-                }}>
-                  点击 + 创建笔记页
-                </div>
+              ))
               )}
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useNavigationActions } from '../contexts/NavigationContext';
+import { useActiveView, useNotesState, useKbState } from '../contexts/NavigationContext';
 import NotesWorkspace from './NotesWorkspace';
 import KBWorkspace from './KBWorkspace';
 import QAPage from '../pages/QAPage';
@@ -6,7 +6,9 @@ import OutputPage from '../pages/OutputPage';
 import SettingsPage from '../pages/SettingsPage';
 
 export default function ContentArea() {
-  const { activeView, selectedNoteId, selectedFolderId } = useNavigationActions();
+  const activeView = useActiveView();
+  const { selectedNoteId } = useNotesState();
+  const { selectedFolderId } = useKbState();
 
   switch (activeView) {
     case 'notes':

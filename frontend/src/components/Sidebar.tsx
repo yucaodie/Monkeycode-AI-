@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { NavItem } from './SidebarParts';
-import { useNavigationActions } from '../contexts/NavigationContext';
+import { useActiveView, useNavigate } from '../contexts/NavigationContext';
 import type { ActiveView } from '../contexts/NavigationContext';
 import './Sidebar.css';
 
@@ -19,7 +19,8 @@ function saveStored(key: string, value: boolean) {
 }
 
 export default function Sidebar() {
-  const { activeView, navigateTo } = useNavigationActions();
+  const activeView = useActiveView();
+  const navigateTo = useNavigate();
 
   const [collapsed, setCollapsed] = useState(() => loadStored('sidebar-collapsed', false));
   const [mobileOpen, setMobileOpen] = useState(false);

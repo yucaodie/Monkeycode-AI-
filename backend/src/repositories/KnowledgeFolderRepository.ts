@@ -51,9 +51,9 @@ export class KnowledgeFolderRepository {
 
   list(userId: number = 1): KnowledgeFolder[] {
     const db = getDatabase();
-    const stmt = db.prepare(
-      'SELECT * FROM knowledge_folders WHERE user_id = ? ORDER BY sort_order ASC, created_at ASC'
-    );
-    return stmt.all(userId) as KnowledgeFolder[];
+    return db.prepare(
+      `SELECT f.*, (SELECT COUNT(*) FROM knowledge_files WHERE folder_id = f.id) as file_count
+       FROM knowledge_folders f WHERE f.user_id = ? ORDER BY f.sort_order ASC, f.created_at ASC`
+    ).all(userId) as KnowledgeFolder[];
   }
 }

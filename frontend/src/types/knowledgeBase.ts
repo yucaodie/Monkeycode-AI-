@@ -5,6 +5,7 @@ export interface KnowledgeFolder {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  file_count?: number;
 }
 
 export interface KnowledgeFile {
